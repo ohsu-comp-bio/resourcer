@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,16 +17,20 @@ import (
 
 	"github.com/gofrs/flock"
 	bytesize "github.com/inhies/go-bytesize"
+	"github.com/pbnjay/memory"
 	"github.com/spf13/cobra"
 )
 
-var config = "resourcer.conf"
+var config = "/tmp/resourcer.conf"
 var dir = "/tmp/resourcer"
 var mem = "1GB"
 var cores = 1
 
+var initConfig = "/tmp/resourcer.conf"
+var initMem = ""
+var initCores = 0
+
 type Request struct {
-	PID    int    `json:"pid"`
 	Memory uint64 `json:"memory"`
 	Cores  int    `json:"cores"`
 }
@@ -92,7 +97,7 @@ func MakeRequest(dir string, req Request, max Request) (bool, error) {
 			if sum.Cores+req.Cores <= max.Cores && sum.Memory+req.Memory <= max.Memory {
 				d, _ := json.Marshal(req)
 				os.WriteFile(RequestFileName(dir), d, 0600)
-				log.Printf("Allocating with %d and %d left", max.Cores-sum.Cores-req.Cores, max.Memory-sum.Memory-uint64(sum.Cores))
+				log.Printf("Allocating with %d and %d left", max.Cores-sum.Cores-req.Cores, max.Memory-sum.Memory-req.Memory)
 				return true, nil
 			} else {
 				//log.Printf("Waiting for resources: %d > %d and %d > %d",
@@ -108,9 +113,21 @@ func ClearRequest(dir string) {
 	os.Remove(RequestFileName(dir))
 }
 
+func GetDefaultLimits() Request {
+	mem := uint64(float64(memory.TotalMemory()) * 0.9)
+	cores := runtime.NumCPU()
+	return Request{Memory: mem, Cores: cores}
+}
+
 var runCmd = &cobra.Command{
 	Use: "run",
 	RunE: func(cmd *cobra.Command, args []string) error {
+
+		if _, err := os.Stat(config); os.IsNotExist(err) {
+			defaults := GetDefaultLimits()
+			json, _ := json.Marshal(defaults)
+			os.WriteFile(config, json, 0600)
+		}
 
 		configTxt, err := os.ReadFile(config)
 		if err != nil {
@@ -168,11 +185,25 @@ var runCmd = &cobra.Command{
 var initCmd = &cobra.Command{
 	Use: "init",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		memSize, err := bytesize.Parse(mem)
-		if err != nil {
-			return err
+		defaults := GetDefaultLimits()
+		var memSize uint64
+		var coreCount int
+
+		if mem == "" {
+			memSize = defaults.Memory
+		} else {
+			ms, err := bytesize.Parse(mem)
+			if err != nil {
+				return err
+			}
+			memSize = uint64(ms)
 		}
-		configReq := Request{Memory: uint64(memSize), Cores: cores}
+		if cores == 0 {
+			coreCount = defaults.Cores
+		} else {
+			coreCount = 1
+		}
+		configReq := Request{Memory: memSize, Cores: coreCount}
 		json, _ := json.Marshal(configReq)
 		os.WriteFile(config, json, 0600)
 		return nil
@@ -185,10 +216,9 @@ func main() {
 	runCmd.Flags().StringVarP(&mem, "mem", "m", mem, "Memory requested")
 	runCmd.Flags().IntVarP(&cores, "cores", "n", cores, "Cores requested")
 
-	initCmd.Flags().StringVarP(&config, "config", "c", config, "Config file path")
-	initCmd.Flags().StringVarP(&dir, "dir", "d", dir, "Working directory")
-	initCmd.Flags().StringVarP(&mem, "mem", "m", mem, "Memory requested")
-	initCmd.Flags().IntVarP(&cores, "cores", "n", cores, "Cores requested")
+	initCmd.Flags().StringVarP(&initConfig, "config", "c", initConfig, "Config file path")
+	initCmd.Flags().StringVarP(&initMem, "mem", "m", initMem, "Memory Avalible")
+	initCmd.Flags().IntVarP(&initCores, "cores", "n", initCores, "Cores Avalible")
 
 	RootCmd := &cobra.Command{
 		Use: "resourcer",
