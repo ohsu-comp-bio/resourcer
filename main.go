@@ -201,7 +201,7 @@ var initCmd = &cobra.Command{
 		if cores == 0 {
 			coreCount = defaults.Cores
 		} else {
-			coreCount = 1
+			coreCount = cores
 		}
 		configReq := Request{Memory: memSize, Cores: coreCount}
 		json, _ := json.Marshal(configReq)
