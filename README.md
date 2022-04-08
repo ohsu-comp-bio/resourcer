@@ -67,7 +67,7 @@ backend {
       	submit = "resourcer run -m ${memory_gb}GB -n ${cpu} -- ${job_shell} ${script}"
 
       	submit-docker = """
-          resourcer run -m ${memory_gb}GB -n ${cpu} --
+          resourcer run -m ${memory_gb}GB -n ${cpu} -- \
         	docker run \
         	 --rm -i \
         	 ${"--user " + docker_user} \
