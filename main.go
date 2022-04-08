@@ -189,19 +189,19 @@ var initCmd = &cobra.Command{
 		var memSize uint64
 		var coreCount int
 
-		if mem == "" {
+		if initMem == "" {
 			memSize = defaults.Memory
 		} else {
-			ms, err := bytesize.Parse(mem)
+			ms, err := bytesize.Parse(initMem)
 			if err != nil {
 				return err
 			}
 			memSize = uint64(ms)
 		}
-		if cores == 0 {
+		if initCores == 0 {
 			coreCount = defaults.Cores
 		} else {
-			coreCount = cores
+			coreCount = initCores
 		}
 		configReq := Request{Memory: memSize, Cores: coreCount}
 		json, _ := json.Marshal(configReq)
