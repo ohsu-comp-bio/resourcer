@@ -84,7 +84,7 @@ func MakeRequest(dir string, req Request, max Request) (bool, error) {
 	lockPath := filepath.Join(dir, "lockfile")
 	fileLock := flock.New(lockPath)
 
-	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	lockCtx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 	locked, err := fileLock.TryLockContext(lockCtx, 678*time.Millisecond)
 	if err != nil {
@@ -211,6 +211,13 @@ var initCmd = &cobra.Command{
 }
 
 func main() {
+
+	resourcePrefix := os.Getenv("RESOURCER_PREFIX")
+	if resourcePrefix != "" {
+		dir = resourcePrefix
+		config = resourcePrefix + ".conf"
+	}
+
 	runCmd.Flags().StringVarP(&config, "config", "c", config, "Config file path")
 	runCmd.Flags().StringVarP(&dir, "dir", "d", dir, "Working directory")
 	runCmd.Flags().StringVarP(&mem, "mem", "m", mem, "Memory requested")
